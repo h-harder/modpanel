@@ -1,1 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mod Panel Login</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Moderation Panel</h1>
+      <p class="muted">Sign in to manage your Roblox server tools.</p>
 
+      <form id="loginForm" class="stack">
+        <label class="label">
+          Admin password
+          <input id="password" class="input" type="password" autocomplete="current-password" placeholder="••••••••" required />
+        </label>
+
+        <button class="btn" type="submit">Log in</button>
+        <div id="loginMsg" class="msg"></div>
+      </form>
+
+      <div class="foot muted">
+        This site is static. Your backend should set an httpOnly session cookie.
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+  <script>
+    window.ModPanel.initLogin();
+  </script>
+</body>
+</html>
