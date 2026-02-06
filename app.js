@@ -3,7 +3,7 @@
 const ModPanel = (() => {
   // ✅ CHANGE THIS to your Cloudflare Worker URL
   // Example: "https://roblox-modpanel-api.yourname.workers.dev"
-  const API_BASE = "https://YOUR-WORKER.your-subdomain.workers.dev";
+  const API_BASE = "https://roblox-modpanel-api.your-subdomain.workers.dev";
 
   function qs(id){ return document.getElementById(id); }
 
