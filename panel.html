@@ -1,1 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Moderation Panel</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="dot"></div>
+        <div>
+          <div class="brand-title">Moderation Panel</div>
+          <div class="brand-sub muted" id="statusText">Connecting…</div>
+        </div>
+      </div>
 
+      <div class="topbar-actions">
+        <button class="btn ghost" id="refreshBtn" type="button">Refresh</button>
+        <button class="btn danger ghost" id="logoutBtn" type="button">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap wide">
+    <div class="grid">
+      <!-- Shutdown -->
+      <section class="card">
+        <h2>Shutdown for Update</h2>
+        <p class="muted">Toggle to block new joins and optionally kick current players.</p>
+
+        <div class="row">
+          <label class="switch">
+            <input id="shutdownEnabled" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+          <div>
+            <div class="label-inline">Shutdown Mode</div>
+            <div class="muted small" id="shutdownStateHint">Unknown</div>
+          </div>
+        </div>
+
+        <label class="check">
+          <input id="kickExisting" type="checkbox" />
+          Kick existing players when turning ON
+        </label>
+
+        <div class="row">
+          <button class="btn" id="applyShutdownBtn" type="button">Apply</button>
+          <div id="shutdownMsg" class="msg"></div>
+        </div>
+      </section>
+
+      <!-- Announcement -->
+      <section class="card">
+        <h2>Announcement</h2>
+        <p class="muted">Broadcast a server message to all live servers.</p>
+
+        <label class="label">
+          Message
+          <textarea id="announceMessage" class="input" rows="3" placeholder="Server message…"></textarea>
+        </label>
+
+        <div class="row">
+          <label class="label" style="flex:1">
+            Duration (seconds)
+            <input id="announceDuration" class="input" type="number" min="2" max="60" value="8" />
+          </label>
+          <button class="btn" id="sendAnnounceBtn" type="button">Send</button>
+        </div>
+
+        <div id="announceMsg" class="msg"></div>
+      </section>
+
+      <!-- Player Actions -->
+      <section class="card">
+        <h2>Player Actions</h2>
+        <p class="muted">Use UserId for best reliability. Username resolving depends on your backend.</p>
+
+        <label class="label">
+          UserId
+          <input id="userId" class="input" inputmode="numeric" placeholder="123456789" />
+        </label>
+
+        <label class="label">
+          Reason
+          <input id="reason" class="input" placeholder="Optional reason…" />
+        </label>
+
+        <div class="row">
+          <button class="btn warn" id="warnBtn" type="button">Warn</button>
+          <button class="btn danger" id="kickBtn" type="button">Kick</button>
+        </div>
+
+        <div class="row">
+          <label class="label" style="flex:1">
+            Ban duration (minutes, 0 = permanent)
+            <input id="banMinutes" class="input" type="number" min="0" value="0" />
+          </label>
+          <button class="btn danger" id="banBtn" type="button">Ban</button>
+        </div>
+
+        <div class="row">
+          <button class="btn ghost" id="unbanBtn" type="button">Unban</button>
+          <button class="btn ghost" id="clearWarnsBtn" type="button">Clear Warnings</button>
+        </div>
+
+        <div id="playerMsg" class="msg"></div>
+      </section>
+
+      <!-- Logs / Help -->
+      <section class="card">
+        <h2>Quick Checks</h2>
+        <p class="muted">Useful for verifying your backend + session.</p>
+
+        <div class="stack">
+          <button class="btn ghost" id="whoamiBtn" type="button">Who am I?</button>
+          <pre class="pre" id="whoamiOut">—</pre>
+
+          <button class="btn ghost" id="getStateBtn" type="button">Get Shutdown State</button>
+          <pre class="pre" id="stateOut">—</pre>
+        </div>
+
+        <div class="muted small">
+          Tip: if you get 401 errors, your session cookie isn’t set or your Worker isn’t sending CORS headers correctly.
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="./app.js"></script>
+  <script>
+    window.ModPanel.initPanel();
+  </script>
+</body>
+</html>
