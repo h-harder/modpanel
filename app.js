@@ -2,7 +2,6 @@
 
 const ModPanel = (() => {
   // ✅ CHANGE THIS to your Cloudflare Worker URL
-  // Example: "https://roblox-modpanel-api.suited-woodsy9d.workers.dev"
   const API_BASE = "https://roblox-modpanel-api.suited-woodsy9d.workers.dev";
 
   function qs(id){ return document.getElementById(id); }
@@ -16,18 +15,24 @@ const ModPanel = (() => {
 
   async function apiFetch(path, options = {}){
     const url = API_BASE.replace(/\/$/,"") + path;
+
+    const method = (options.method || "GET").toUpperCase();
+    const hasBody = options.body !== undefined && options.body !== null;
+
+    // ✅ Only set Content-Type when sending JSON body
+    const headers = new Headers(options.headers || {});
+    if (hasBody && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+
     const res = await fetch(url, {
       ...options,
-      credentials: "include", // session cookie
-      headers: {
-        "Content-Type":"application/json",
-        ...(options.headers || {})
-      },
+      method,
+      credentials: "include",
+      headers,
     });
 
-    // auto-handle auth failures
     if (res.status === 401 || res.status === 403) {
-      // If we’re on the panel, bounce to login
       if (location.pathname.endsWith("panel.html")) {
         location.href = "./index.html";
       }
@@ -35,12 +40,8 @@ const ModPanel = (() => {
 
     let data = null;
     const ct = res.headers.get("content-type") || "";
-    if (ct.includes("application/json")) {
-      data = await res.json().catch(() => null);
-    } else {
-      const text = await res.text().catch(() => "");
-      data = text ? { text } : null;
-    }
+    if (ct.includes("application/json")) data = await res.json().catch(() => null);
+    else data = { text: await res.text().catch(() => "") };
 
     if (!res.ok) {
       const message = (data && (data.error || data.message)) || `Request failed: ${res.status}`;
@@ -53,20 +54,16 @@ const ModPanel = (() => {
     return data;
   }
 
-  // ---------- Login ----------
   async function initLogin(){
     const form = qs("loginForm");
     const password = qs("password");
     const msg = qs("loginMsg");
 
-    // If already logged in, go to panel (best-effort)
     try {
       await apiFetch("/me", { method: "GET" });
       location.href = "./panel.html";
       return;
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -77,7 +74,6 @@ const ModPanel = (() => {
           method: "POST",
           body: JSON.stringify({ password: password.value })
         });
-
         setMsg(msg, "Logged in. Redirecting…", "ok");
         location.href = "./panel.html";
       } catch (err) {
@@ -86,7 +82,6 @@ const ModPanel = (() => {
     });
   }
 
-  // ---------- Panel ----------
   async function initPanel(){
     const statusText = qs("statusText");
 
@@ -131,29 +126,13 @@ const ModPanel = (() => {
       setMsg(announceMsg, "");
       setMsg(playerMsg, "");
 
-      // Best-effort: /state endpoint recommended; fallback to /shutdown/state
-      try {
-        const st = await apiFetch("/state", { method: "GET" });
-        applyState(st);
-      } catch (_) {
-        try {
-          const st = await apiFetch("/shutdown/state", { method: "GET" });
-          applyState(st);
-        } catch {
-          shutdownStateHint.textContent = "State endpoint not available.";
-        }
-      }
-    }
-
-    function applyState(st){
-      // expect: { shutdownEnabled: boolean, updatedAt?: number }
+      const st = await apiFetch("/state", { method: "GET" });
       const enabled = !!(st && (st.shutdownEnabled ?? st.enabled));
       shutdownEnabled.checked = enabled;
       shutdownStateHint.textContent = enabled ? "ON (new joins blocked)" : "OFF (normal)";
       stateOut.textContent = JSON.stringify(st, null, 2);
     }
 
-    // Wire buttons
     refreshBtn.addEventListener("click", loadState);
 
     logoutBtn.addEventListener("click", async () => {
@@ -165,16 +144,10 @@ const ModPanel = (() => {
       setMsg(shutdownMsg, "Applying…");
       try {
         const enabled = shutdownEnabled.checked;
-        const payload = { enabled, kickExisting: kickExisting.checked };
-
-        // preferred endpoint
-        try {
-          await apiFetch("/cmd/shutdown", { method:"POST", body: JSON.stringify(payload) });
-        } catch (_) {
-          // fallback endpoint
-          await apiFetch("/shutdown", { method:"POST", body: JSON.stringify(payload) });
-        }
-
+        await apiFetch("/cmd/shutdown", {
+          method:"POST",
+          body: JSON.stringify({ enabled, kickExisting: kickExisting.checked })
+        });
         setMsg(shutdownMsg, `Shutdown Mode is now ${enabled ? "ON" : "OFF"}.`, "ok");
         await loadState();
       } catch (err) {
@@ -191,12 +164,7 @@ const ModPanel = (() => {
         };
         if (!payload.message) throw new Error("Enter an announcement message.");
 
-        try {
-          await apiFetch("/cmd/announce", { method:"POST", body: JSON.stringify(payload) });
-        } catch (_) {
-          await apiFetch("/announce", { method:"POST", body: JSON.stringify(payload) });
-        }
-
+        await apiFetch("/cmd/announce", { method:"POST", body: JSON.stringify(payload) });
         setMsg(announceMsg, "Announcement sent.", "ok");
         announceMessage.value = "";
       } catch (err) {
@@ -207,8 +175,10 @@ const ModPanel = (() => {
     warnBtn.addEventListener("click", async () => {
       setMsg(playerMsg, "Sending warning…");
       try {
-        const payload = { userId: requireUserId(), reason: (reason.value||"").trim() };
-        await apiFetch("/cmd/warn", { method:"POST", body: JSON.stringify(payload) });
+        await apiFetch("/cmd/warn", {
+          method:"POST",
+          body: JSON.stringify({ userId: requireUserId(), reason: (reason.value||"").trim() })
+        });
         setMsg(playerMsg, "Warn sent.", "ok");
       } catch (err) {
         setMsg(playerMsg, err.message, "bad");
@@ -218,8 +188,10 @@ const ModPanel = (() => {
     kickBtn.addEventListener("click", async () => {
       setMsg(playerMsg, "Kicking…");
       try {
-        const payload = { userId: requireUserId(), reason: (reason.value||"").trim() };
-        await apiFetch("/cmd/kick", { method:"POST", body: JSON.stringify(payload) });
+        await apiFetch("/cmd/kick", {
+          method:"POST",
+          body: JSON.stringify({ userId: requireUserId(), reason: (reason.value||"").trim() })
+        });
         setMsg(playerMsg, "Kick command sent.", "ok");
       } catch (err) {
         setMsg(playerMsg, err.message, "bad");
@@ -232,12 +204,14 @@ const ModPanel = (() => {
         const minutes = Number(banMinutes.value || 0);
         if (minutes < 0) throw new Error("Ban minutes must be 0 or higher.");
 
-        const payload = {
-          userId: requireUserId(),
-          reason: (reason.value||"").trim(),
-          durationSeconds: Math.floor(minutes * 60)
-        };
-        await apiFetch("/cmd/ban", { method:"POST", body: JSON.stringify(payload) });
+        await apiFetch("/cmd/ban", {
+          method:"POST",
+          body: JSON.stringify({
+            userId: requireUserId(),
+            reason: (reason.value||"").trim(),
+            durationSeconds: Math.floor(minutes * 60)
+          })
+        });
         setMsg(playerMsg, minutes === 0 ? "Permanent ban set." : `Banned for ${minutes} minutes.`, "ok");
       } catch (err) {
         setMsg(playerMsg, err.message, "bad");
@@ -247,8 +221,10 @@ const ModPanel = (() => {
     unbanBtn.addEventListener("click", async () => {
       setMsg(playerMsg, "Unbanning…");
       try {
-        const payload = { userId: requireUserId() };
-        await apiFetch("/cmd/unban", { method:"POST", body: JSON.stringify(payload) });
+        await apiFetch("/cmd/unban", {
+          method:"POST",
+          body: JSON.stringify({ userId: requireUserId() })
+        });
         setMsg(playerMsg, "Unbanned.", "ok");
       } catch (err) {
         setMsg(playerMsg, err.message, "bad");
@@ -258,8 +234,10 @@ const ModPanel = (() => {
     clearWarnsBtn.addEventListener("click", async () => {
       setMsg(playerMsg, "Clearing warnings…");
       try {
-        const payload = { userId: requireUserId() };
-        await apiFetch("/cmd/clearwarns", { method:"POST", body: JSON.stringify(payload) });
+        await apiFetch("/cmd/clearwarns", {
+          method:"POST",
+          body: JSON.stringify({ userId: requireUserId() })
+        });
         setMsg(playerMsg, "Warnings cleared.", "ok");
       } catch (err) {
         setMsg(playerMsg, err.message, "bad");
@@ -286,10 +264,8 @@ const ModPanel = (() => {
       }
     });
 
-    // initial connect
     try {
       statusText.textContent = "Connecting…";
-      // If your backend has /me, this is a nice session check
       await apiFetch("/me", { method: "GET" });
       await loadState();
     } catch (err) {
